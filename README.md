@@ -24,16 +24,16 @@ Numerical reproduction of Olofsson & Gonoskov, *Attaining a strong-field QED sig
 
 ### Schema
 
-The particles module receives field packs. A pack is one `.npz` file per $f$-number (`data/f{fnumber}.npz`, gitignored) containing two keys: `Ec` (the array) and `metadata` (a JSON string validated by `data/schema.json`).
+The particles module receives field packs. A pack is one `.npz` file per $f$-number (`data/f{fnumber}.npz`, gitignored) containing `Ec` (required), `Bc` (optional), and `metadata` (a JSON string validated by `data/schema.json`):
 
->[!warning]
-> check this portion, also clanker made
+- `Ec`: `(Nf, 3, Nz, Ny, Nx)` `complex128` electric field phasor in $\mathrm{V/m}$ (vector components `(Ex, Ey, Ez)` on axis `1`). Legacy 4D `(Nf, Nz, Ny, Nx)` scalar $E_z$ packs are auto-promoted by the loader when `pol == "z-linear"`.
+- `Bc` (optional): `(Nf, 3, Nz, Ny, Nx)` `complex128` magnetic field phasor in $\mathrm{T}$. If omitted from the `.npz` pack, `src/particles` reconstructs $\mathbf{B}_c^{(k)} = \frac{i}{\omega_k}\nabla \times \mathbf{E}_c^{(k)}$ on load via central finite differences.
 
 Time is never passed as data, but reconstructed using
 
-$$E(x,y,z,t) = \sum_k \mathrm{Re}\!\left[E_c^{(k)}(x,y,z)\, e^{+i\omega_k t}\right]$$
+$$\mathbf{E}(x,y,z,t) = g(t) \sum_k \mathrm{Re}\!\left[\mathbf{E}_c^{(k)}(x,y,z)\, e^{+i\omega_k t}\right]$$
 
-at the pusher's own timestep ($\Delta t \ll$ quarter-carrier period, $\lesssim 0.5\,\mathrm{fs}$ at 800 nm). Timing jitter is a per-shot phase factor $e^{i\omega_k\delta t}$.
+at the pusher's own timestep ($\Delta t \le T_0/20$, $\lesssim 0.13\,\mathrm{fs}$ at 800 nm). Timing jitter is a per-shot phase/time shift $\delta t$.
 
 ### Metadata
 
@@ -41,7 +41,8 @@ Save the data with the validated schema:
 
 ```python
 np.savez_compressed("fields/f0.25.npz",
-    Ec=Ec,                                   # (Nf, Nz, Ny, Nx) complex128
+    Ec=Ec,                                   # (Nf, 3, Nz, Ny, Nx) complex128, V/m
+    Bc=Bc,                                   # optional (Nf, 3, Nz, Ny, Nx) complex128, T
     metadata=json.dumps(meta))               # meta conforms to data/schema.json
 ```
 
